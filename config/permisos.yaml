@@ -1,6 +1,9 @@
-# Raíces permitidas por skill para la jaula de rutas (se usa desde v0.5).
+# Raíces permitidas por skill para la jaula de rutas.
 # Una skill que toque archivos solo podrá operar DENTRO de estas carpetas.
 # Formato:  nombre_skill: [ruta1, ruta2, ...]
 
-# Ejemplo:
+# Para habilitar la skill de notas, descomentá y apuntá a una carpeta TUYA:
+# nota: ["C:\\Users\\TU_USUARIO\\Documents\\notas"]
+
+# Ejemplo de una futura skill que organice descargas:
 # organizar_descargas: ["C:\\Users\\TU_USUARIO\\Downloads"]

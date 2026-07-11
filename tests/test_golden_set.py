@@ -14,6 +14,8 @@ CASOS = [
     ("abre spotify", "abrir_app"),
     ("abrime chrome", "abrir_app"),
     ("cómo está el clima", "clima"),
+    ("tomá nota comprar pan", "nota"),
+    ("anota llamar al dentista", "nota"),
 ]
 
 
@@ -33,6 +35,12 @@ def test_extrae_nombre_de_app(router: Router) -> None:
     intencion = router.enrutar("abre spotify")
     assert intencion is not None
     assert intencion.params.get("nombre") == "spotify"
+
+
+def test_extrae_texto_de_nota(router: Router) -> None:
+    intencion = router.enrutar("tomá nota comprar pan")
+    assert intencion is not None
+    assert intencion.params.get("texto") == "comprar pan"
 
 
 def test_texto_desconocido_no_enruta(router: Router) -> None:
