@@ -1,0 +1,6 @@
+# Perfil de estilo del asistente (lo aplica core/persona.py desde v1).
+# Define el CARÁCTER, que es independiente del timbre de voz.
+nombre: "Nova"          # nombre para el wake word (v4). Fonéticamente neutro es mejor.
+tono: "neutral"         # neutral | formal | casual
+muletillas: []          # frases que el asistente tiende a usar
+longitud: "breve"       # breve | normal | detallada

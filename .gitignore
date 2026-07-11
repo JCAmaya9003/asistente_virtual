@@ -1,0 +1,21 @@
+# Entorno
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Secretos y estado local
+.env
+audit.jsonl
+
+# Modelos y datos de voz (grandes, no se versionan)
+*.onnx
+*.onnx.json
+voices/
+models/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

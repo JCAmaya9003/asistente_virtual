@@ -1,0 +1,6 @@
+# Raíces permitidas por skill para la jaula de rutas (se usa desde v0.5).
+# Una skill que toque archivos solo podrá operar DENTRO de estas carpetas.
+# Formato:  nombre_skill: [ruta1, ruta2, ...]
+
+# Ejemplo:
+# organizar_descargas: ["C:\\Users\\TU_USUARIO\\Downloads"]

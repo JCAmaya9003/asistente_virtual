@@ -1,0 +1,8 @@
+# Whitelist de aplicaciones. El asistente SOLO abre lo que esté aquí.
+# Formato:  nombre_en_minúsculas: ruta_absoluta_al_ejecutable
+# El descubrimiento automático de .lnk del menú de inicio (con tu aprobación) llega en v0.5.
+
+# Ejemplos (descomentá y ajustá las rutas a TU equipo):
+# spotify: C:\Users\TU_USUARIO\AppData\Roaming\Spotify\Spotify.exe
+# chrome:  C:\Program Files\Google\Chrome\Application\chrome.exe
+# code:    C:\Users\TU_USUARIO\AppData\Local\Programs\Microsoft VS Code\Code.exe
