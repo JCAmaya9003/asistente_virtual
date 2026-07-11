@@ -1,6 +1,13 @@
-# Perfil de estilo del asistente (lo aplica core/persona.py desde v1).
+# Perfil de estilo del asistente (lo aplica core/persona.py).
 # Define el CARÁCTER, que es independiente del timbre de voz.
 nombre: "Nova"          # nombre para el wake word (v4). Fonéticamente neutro es mejor.
-tono: "neutral"         # neutral | formal | casual
-muletillas: []          # frases que el asistente tiende a usar
-longitud: "breve"       # breve | normal | detallada
+tono: "casual"         # neutral | casual
+muletillas: []          # frases que el asistente antepone (solo si tono = casual)
+longitud: "normal"       # breve | normal | detallada
+
+# Voz de salida (Piper). Descargá un modelo y apuntá 'modelo' al archivo .onnx.
+# Si 'modelo' no existe, el asistente funciona en modo texto sin romperse.
+voz:
+  modelo: "voices/es_MX-ald-medium.onnx"   # ruta al modelo Piper (.onnx)
+  use_cuda: false                           # true en v2+ con onnxruntime-gpu
+  length_scale: 1.0                         # >1.0 más lento, <1.0 más rápido
