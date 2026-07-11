@@ -89,3 +89,79 @@ class EntradaVoz:
         if not bloques:
             return None
         return np.concatenate(bloques)
+
+
+# --------------------------------------------------------------------------- #
+# Grabación continua (v3): el stream queda abierto y el hotkey marca los bordes
+# --------------------------------------------------------------------------- #
+
+class GrabadorContinuo:
+    """Mantiene el InputStream abierto y acumula audio solo entre empezar() y terminar().
+
+    El stream abierto permanentemente es lo que permite al watchdog verificar la salud
+    del micrófono sin interferir con la grabación.
+    """
+
+    def __init__(self, sample_rate: int = 16000, bloque_ms: int = 100,
+                 max_segundos: int = 30) -> None:
+        self._sr = sample_rate
+        self._bloque = int(sample_rate * bloque_ms / 1000)
+        self._max_bloques = int(max_segundos * 1000 / bloque_ms)
+        self._stream = None
+        self._buffer: list = []
+        self._grabando = False
+        self._ultimo_bloque = None
+
+    def abrir(self) -> None:
+        import sounddevice as sd
+
+        def callback(indata, frames, tiempo, status):
+            bloque = indata[:, 0].copy()
+            self._ultimo_bloque = bloque              # lo lee el watchdog
+            if self._grabando and len(self._buffer) < self._max_bloques:
+                self._buffer.append(bloque)
+
+        self._stream = sd.InputStream(
+            samplerate=self._sr, channels=1, dtype="float32",
+            blocksize=self._bloque, callback=callback,
+        )
+        self._stream.start()
+
+    def cerrar(self) -> None:
+        if self._stream is not None:
+            try:
+                self._stream.stop()
+                self._stream.close()
+            except Exception:
+                pass
+            self._stream = None
+
+    def reabrir(self) -> None:
+        self.cerrar()
+        self.abrir()
+
+    def esta_sano(self) -> bool:
+        """False si el stream entrega ceros (dispositivo desconectado o dormido).
+
+        Silencio real tiene ruido de fondo: varianza pequeña pero > 0. Un stream muerto
+        entrega ceros exactos.
+        """
+        from core.watchdog import microfono_mudo
+
+        if self._stream is None or self._ultimo_bloque is None:
+            return False
+        return not microfono_mudo(self._ultimo_bloque)
+
+    def empezar(self) -> None:
+        self._buffer = []
+        self._grabando = True
+
+    def terminar(self):
+        import numpy as np
+
+        self._grabando = False
+        if not self._buffer:
+            return None
+        audio = np.concatenate(self._buffer)
+        self._buffer = []
+        return audio
