@@ -1,0 +1,14 @@
+# Configuración del oído (v2). Solo se usa al correr:  python main.py --voz
+
+stt:
+  modelo: "large-v3"      # large-v3 con GPU; "small" o "base" si vas a CPU
+  device: "auto"          # auto | cuda | cpu   (auto: usa CUDA y cae a CPU si falla)
+  compute_type: "auto"    # auto | int8_float16 | float16 | int8
+  idioma: "es"            # fijo a propósito: la autodetección falla en clips cortos
+
+captura:
+  sample_rate: 16000      # lo que espera Whisper. No cambiar.
+  bloque_ms: 100
+  silencio_ms: 1200       # silencio necesario para dar por terminada la frase
+  umbral_silencio: 0.015  # subilo si tu micro capta mucho ruido de fondo
+  max_segundos: 15        # tope duro de grabación

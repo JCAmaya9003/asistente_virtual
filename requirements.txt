@@ -5,9 +5,19 @@ pytest>=8.0
 # v1 — voz de salida (TTS local con Piper, GPL-3.0)
 piper-tts>=1.4
 
+# v2 — oído (STT local con faster-whisper + captura de micrófono)
+faster-whisper>=1.1
+sounddevice>=0.4
+numpy>=1.24
+
+# v2 GPU (Windows) — cuBLAS y cuDNN 9 dentro del venv.
+# Sin esto, faster-whisper con CUDA falla: 'cublas64_12.dll is not found'.
+# adapters/stt_whisper.py registra estas DLLs automáticamente en Windows.
+nvidia-cublas-cu12
+nvidia-cudnn-cu12>=9,<10
+
 # --- se agregan cuando cada versión los pida (NO instalar aún) ---
 # v0.5 (borrado seguro):  Send2Trash
-# v2   (voz de entrada):  faster-whisper, sounddevice
 # v3   (integración SO):  pynput, pystray
 # v4   (wake word):       openwakeword, silero-vad
 # v5   (router LLM):      ollama

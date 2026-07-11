@@ -6,21 +6,10 @@ El descubrimiento automático de .lnk del menú de inicio (con aprobación) lleg
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
-import yaml
-
+from core.config import cargar_apps
 from core.contexto import Contexto
 from core.skill import Permisos, Resultado, Skill
-
-_APPS = Path(__file__).resolve().parent.parent / "config" / "apps.yaml"
-
-
-def _cargar_apps() -> dict[str, str]:
-    if not _APPS.exists():
-        return {}
-    with _APPS.open(encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
 
 
 class SkillAbrirApp(Skill):
@@ -51,7 +40,7 @@ class SkillAbrirApp(Skill):
         if not nombre:
             return Resultado(ok=False, mensaje="¿Qué aplicación querés abrir?")
 
-        apps = _cargar_apps()
+        apps = cargar_apps()
         ruta = apps.get(nombre)
         if ruta is None:
             return Resultado(
