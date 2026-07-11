@@ -1,19 +1,33 @@
-"""Salida por voz (TTS). Se implementa en v1 con Piper detrás de esta interfaz.
-El motor es intercambiable sin tocar el núcleo (ver ADR 1 y §7.1 del ARCHITECTURE.md).
+"""Salida por voz (TTS). Reproduce el audio WAV que sintetiza un motor (Piper por defecto).
+El motor es intercambiable; esta clase solo se ocupa de la reproducción por plataforma.
 """
 from __future__ import annotations
 
-from typing import Iterator, Protocol
+import sys
+from typing import Protocol
 
 
 class TTSEngine(Protocol):
-    def hablar(self, texto: str) -> Iterator[bytes]: ...
+    def sintetizar_wav(self, texto: str) -> bytes: ...
 
 
 class SalidaTTS:
-    def __init__(self, engine: "TTSEngine | None" = None) -> None:
+    def __init__(self, engine: "TTSEngine", tambien_consola: bool = True) -> None:
         self._engine = engine
+        self._tambien_consola = tambien_consola
 
     def decir(self, texto: str) -> None:
-        # v1: enchufar Piper aquí.
-        raise NotImplementedError("La salida por voz llega en la v1.")
+        if self._tambien_consola:
+            print(f"asistente> {texto}")
+        wav = self._engine.sintetizar_wav(texto)
+        self._reproducir(wav)
+
+    @staticmethod
+    def _reproducir(wav: bytes) -> None:
+        if sys.platform == "win32":
+            import winsound
+            # SND_MEMORY reproduce el WAV desde RAM; bloquea hasta terminar de hablar.
+            winsound.PlaySound(wav, winsound.SND_MEMORY)
+        else:
+            # Fuera de Windows la reproducción se unifica con sounddevice en la v2.
+            raise NotImplementedError("Reproducción de audio: Windows en la v1.")

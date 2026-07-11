@@ -17,9 +17,12 @@ def _cargar_yaml(nombre: str) -> dict:
 
 
 def raices_de(skill: str) -> list[str]:
-    """Raíces permitidas para una skill, leídas de config/permisos.yaml.
-    Devuelve [] si la skill no tiene carpetas configuradas.
-    """
+    """Raíces permitidas para una skill, leídas de config/permisos.yaml."""
     permisos = _cargar_yaml("permisos.yaml")
     valor = permisos.get(skill, [])
     return list(valor) if isinstance(valor, list) else []
+
+
+def cargar_persona() -> dict:
+    """Perfil de estilo y configuración de voz, desde config/persona.yaml."""
+    return _cargar_yaml("persona.yaml")

@@ -2,9 +2,11 @@
 PyYAML>=6.0
 pytest>=8.0
 
+# v1 — voz de salida (TTS local con Piper, GPL-3.0)
+piper-tts>=1.4
+
 # --- se agregan cuando cada versión los pida (NO instalar aún) ---
 # v0.5 (borrado seguro):  Send2Trash
-# v1   (voz de salida):   piper-tts
 # v2   (voz de entrada):  faster-whisper, sounddevice
 # v3   (integración SO):  pynput, pystray
 # v4   (wake word):       openwakeword, silero-vad
