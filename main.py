@@ -1,9 +1,11 @@
 """Punto de entrada.
 
-  python main.py          → REPL de texto (escribís, te responde con voz)
-  python main.py --voz    → push-to-talk (Enter, hablás, te responde con voz)
+  python main.py            → REPL de texto (escribís, te responde con voz)
+  python main.py --voz      → push-to-talk en la terminal (Enter, hablás)
+  python main.py --daemon   → vive en la bandeja; hotkey global para hablar
 
-Flujo:  entrada → Router → Compuerta → Skill → Persona → Salida
+Flujo (idéntico en los tres modos):
+  entrada → Router → Compuerta → Skill → Persona → Salida
 
 Todo degrada con elegancia: sin modelo Piper responde por consola; sin CUDA transcribe
 en CPU; sin micrófono o sin faster-whisper, cae al REPL de texto.
@@ -17,7 +19,7 @@ from adapters.input_cli import EntradaCLI
 from adapters.output_console import SalidaConsola
 from adapters.output_tts import SalidaTTS
 from core.audit import Auditor
-from core.config import cargar_apps, cargar_audio, cargar_persona
+from core.config import cargar_audio, cargar_persona, nombres_de_apps
 from core.contexto import Contexto
 from core.gate import Compuerta
 from core.persona import Persona
@@ -52,29 +54,33 @@ def construir_salida(persona_cfg: dict):
     return SalidaConsola()
 
 
+def construir_stt():
+    """Motor de transcripción. Lanza si no está disponible: el que llama decide qué hacer."""
+    from adapters.stt_whisper import WhisperEngine, construir_initial_prompt
+
+    stt_cfg = (cargar_audio().get("stt") or {})
+    print("[oído] cargando el modelo, esto tarda la primera vez...")
+    engine = WhisperEngine(
+        modelo=stt_cfg.get("modelo", "large-v3"),
+        device=stt_cfg.get("device", "auto"),
+        compute_type=stt_cfg.get("compute_type", "auto"),
+        idioma=stt_cfg.get("idioma", "es"),
+        initial_prompt=construir_initial_prompt(nombres_de_apps()),
+    )
+    print(f"[oído activo: faster-whisper en {engine.dispositivo}]")
+    return engine
+
+
 def construir_entrada(usar_voz: bool):
     """Micrófono si se pidió --voz y todo está disponible; si no, teclado."""
     if not usar_voz:
         return EntradaCLI()
     try:
         from adapters.input_voice import EntradaVoz
-        from adapters.stt_whisper import WhisperEngine, construir_initial_prompt
 
-        cfg = cargar_audio()
-        stt = cfg.get("stt") or {}
-        cap = cfg.get("captura") or {}
-
-        print("[oído] cargando el modelo, esto tarda la primera vez...")
-        engine = WhisperEngine(
-            modelo=stt.get("modelo", "large-v3"),
-            device=stt.get("device", "auto"),
-            compute_type=stt.get("compute_type", "auto"),
-            idioma=stt.get("idioma", "es"),
-            initial_prompt=construir_initial_prompt(list(cargar_apps().keys())),
-        )
-        print(f"[oído activo: faster-whisper en {engine.dispositivo}]")
+        cap = (cargar_audio().get("captura") or {})
         return EntradaVoz(
-            engine,
+            construir_stt(),
             sample_rate=int(cap.get("sample_rate", 16000)),
             bloque_ms=int(cap.get("bloque_ms", 100)),
             silencio_ms=int(cap.get("silencio_ms", 1200)),
@@ -86,8 +92,50 @@ def construir_entrada(usar_voz: bool):
         return EntradaCLI()
 
 
+def construir_procesador(router: Router, compuerta: Compuerta, persona: Persona,
+                         contexto: Contexto):
+    """El corazón compartido por TODOS los modos: texto → respuesta hablada."""
+    def procesar(texto: str) -> str:
+        intencion = router.enrutar(texto)
+        if intencion is None:
+            bruto = "No entendí. ¿Podés reformularlo?"
+        else:
+            bruto = compuerta.ejecutar(intencion, contexto).mensaje
+        respuesta = persona.estilizar(bruto)
+        contexto.agregar(texto, respuesta)
+        return respuesta
+
+    return procesar
+
+
+def correr_daemon(procesar, salida, auditor, persona_cfg: dict) -> None:
+    """Modo residente: bandeja + hotkey global + watchdog."""
+    from adapters.input_voice import GrabadorContinuo
+    from core.daemon import Daemon
+
+    audio_cfg = cargar_audio()
+    cap = audio_cfg.get("captura") or {}
+    dae = audio_cfg.get("daemon") or {}
+
+    grabador = GrabadorContinuo(
+        sample_rate=int(cap.get("sample_rate", 16000)),
+        bloque_ms=int(cap.get("bloque_ms", 100)),
+        max_segundos=int(dae.get("max_segundos", 30)),
+    )
+    Daemon(
+        stt=construir_stt(),
+        grabador=grabador,
+        procesar=procesar,
+        salida=salida,
+        auditor=auditor,
+        tecla=str(dae.get("tecla", "ctrl_r")),
+        nombre=str(persona_cfg.get("nombre", "Asistente")),
+    ).correr()
+
+
 def main() -> None:
-    usar_voz = "--voz" in sys.argv
+    modo_voz = "--voz" in sys.argv
+    modo_daemon = "--daemon" in sys.argv
 
     persona_cfg = cargar_persona()
     registry = cargar_skills()
@@ -97,8 +145,16 @@ def main() -> None:
     persona = Persona(persona_cfg)
     contexto = Contexto()
     salida = construir_salida(persona_cfg)
-    entrada = construir_entrada(usar_voz)
+    procesar = construir_procesador(router, compuerta, persona, contexto)
 
+    if modo_daemon:
+        try:
+            correr_daemon(procesar, salida, auditor, persona_cfg)
+            return
+        except Exception as e:
+            print(f"[daemon desactivado: {e}] Caigo al REPL.")
+
+    entrada = construir_entrada(modo_voz)
     print(f"Listo. {len(registry)} skills cargadas. Decí o escribí 'salir' para terminar.")
     while True:
         texto = entrada.leer()
@@ -107,17 +163,7 @@ def main() -> None:
             break
         if not texto.strip():
             continue
-
-        intencion = router.enrutar(texto)
-        if intencion is None:
-            bruto = "No entendí. ¿Podés reformularlo?"
-        else:
-            resultado = compuerta.ejecutar(intencion, contexto)
-            bruto = resultado.mensaje
-
-        respuesta = persona.estilizar(bruto)
-        salida.decir(respuesta)
-        contexto.agregar(texto, respuesta)
+        salida.decir(procesar(texto))
 
 
 if __name__ == "__main__":

@@ -6,7 +6,8 @@ from __future__ import annotations
 import pytest
 
 from adapters.input_voice import es_silencio, rms
-from adapters.stt_whisper import (construir_initial_prompt, limpiar_transcripcion, resolver_dispositivo)
+from adapters.stt_whisper import (construir_initial_prompt, limpiar_transcripcion,
+                                  resolver_dispositivo)
 
 
 # --- resolución de dispositivo ---

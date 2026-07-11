@@ -18,7 +18,8 @@ from pathlib import Path
 # Funciones puras (testeables sin hardware)
 # --------------------------------------------------------------------------- #
 
-def resolver_dispositivo(device: str, compute_type: str, cuda_disponible: bool) -> tuple[str, str]:
+def resolver_dispositivo(device: str, compute_type: str,
+                        cuda_disponible: bool) -> tuple[str, str]:
     """Traduce la config ('auto') a un (device, compute_type) concreto.
 
     int8_float16 en GPU: ~40% menos VRAM que float16 con pérdida de precisión
@@ -65,8 +66,8 @@ def _registrar_dlls_cuda_windows() -> None:
     con 'Library cublas64_12.dll is not found'.
 
     Hay que hacer DOS cosas, no una:
-      - add_dll_directory: sirve para las cargas que hace Python.
-      - PATH: CTranslate2 carga cuBLAS/cuDNN de forma DIFERIDA (recién al codificar) con
+        - add_dll_directory: sirve para las cargas que hace Python.
+        - PATH: CTranslate2 carga cuBLAS/cuDNN de forma DIFERIDA (recién al codificar) con
         un LoadLibrary plano de C++, que ignora add_dll_directory y solo mira el orden de
         búsqueda estándar de Windows. Por eso el modelo carga bien y falla al transcribir.
 

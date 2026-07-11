@@ -33,6 +33,18 @@ def cargar_audio() -> dict:
     return _cargar_yaml("audio.yaml")
 
 
-def cargar_apps() -> dict[str, str]:
+def cargar_apps() -> dict:
     """Whitelist de aplicaciones, desde config/apps.yaml."""
     return _cargar_yaml("apps.yaml")
+
+
+def nombres_de_apps() -> list[str]:
+    """Todos los nombres y alias de apps. Se le pasan a Whisper como initial_prompt para
+    que transcriba 'Chrome' y no 'crom' (§7.3 del ARCHITECTURE.md).
+    """
+    nombres: list[str] = []
+    for clave, valor in (cargar_apps() or {}).items():
+        nombres.append(str(clave))
+        if isinstance(valor, dict):
+            nombres.extend(str(a) for a in (valor.get("alias") or []))
+    return nombres

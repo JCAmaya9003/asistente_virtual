@@ -1,8 +1,36 @@
 # Whitelist de aplicaciones. El asistente SOLO abre lo que esté aquí.
-# Formato:  nombre_en_minúsculas: ruta_absoluta_al_ejecutable
-# El descubrimiento automático de .lnk del menú de inicio (con tu aprobación) llega en v0.5.
+#
+# Cada app tiene ALIAS (todos los nombres con los que la podés llamar) y un DESTINO,
+# que puede ser:
+#   - ruta a un .exe          C:\Program Files\...\chrome.exe
+#   - un protocolo/URI        whatsapp://          (apps de la Microsoft Store)
+#   - una carpeta del shell   shell:AppsFolder\...
+#
+# Los alias también se le pasan a Whisper como pista, para que transcriba bien los
+# nombres de marca ("Chrome" y no "crom").
+#
+# IMPORTANTE: reemplazá TU_USUARIO por tu usuario de Windows.
 
-# Ejemplos (descomentá y ajustá las rutas a TU equipo):
-# spotify: C:\Users\TU_USUARIO\AppData\Roaming\Spotify\Spotify.exe
-# chrome:  C:\Program Files\Google\Chrome\Application\chrome.exe
-# code:    C:\Users\TU_USUARIO\AppData\Local\Programs\Microsoft VS Code\Code.exe
+chrome:
+  alias: [google, navegador, el navegador, google chrome]
+  destino: C:\Program Files\Google\Chrome\Application\chrome.exe
+
+discord:
+  alias: [discor, disco]        # el STT a veces se come la 'd' final
+  # Discord cambia de carpeta en cada actualización (app-1.0.xxxx). El Update.exe con
+  # --processStart siempre lanza la versión actual: es la forma estable de abrirlo.
+  destino: C:\Users\naujh\OneDrive\Escritorio\Discord.lnk
+
+whatsapp:
+  alias: [wasap, wasa, guasap, whats app]
+  # WhatsApp es app de la Microsoft Store: no tiene un .exe con ruta fija.
+  # Su protocolo la abre igual. Si no funciona, mirá el README.
+  destino: whatsapp://
+
+# Ejemplos de otras apps:
+# spotify:
+#   alias: [música, musica]
+#   destino: C:\Users\TU_USUARIO\AppData\Roaming\Spotify\Spotify.exe
+# code:
+#   alias: [vs code, visual studio code, editor]
+#   destino: C:\Users\TU_USUARIO\AppData\Local\Programs\Microsoft VS Code\Code.exe
