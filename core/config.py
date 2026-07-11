@@ -26,3 +26,13 @@ def raices_de(skill: str) -> list[str]:
 def cargar_persona() -> dict:
     """Perfil de estilo y configuración de voz, desde config/persona.yaml."""
     return _cargar_yaml("persona.yaml")
+
+
+def cargar_audio() -> dict:
+    """Configuración de STT y captura, desde config/audio.yaml."""
+    return _cargar_yaml("audio.yaml")
+
+
+def cargar_apps() -> dict[str, str]:
+    """Whitelist de aplicaciones, desde config/apps.yaml."""
+    return _cargar_yaml("apps.yaml")
