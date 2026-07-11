@@ -1,4 +1,4 @@
-# Configuración del oído (v2). Solo se usa al correr:  python main.py --voz
+# Configuración del oído. Se usa en:  python main.py --voz   y   python main.py --daemon
 
 stt:
   modelo: "large-v3"      # large-v3 con GPU; "small" o "base" si vas a CPU
@@ -9,6 +9,14 @@ stt:
 captura:
   sample_rate: 16000      # lo que espera Whisper. No cambiar.
   bloque_ms: 100
-  silencio_ms: 1200       # silencio necesario para dar por terminada la frase
-  umbral_silencio: 0.015  # subilo si tu micro capta mucho ruido de fondo
+  silencio_ms: 1200       # (modo --voz) silencio que da por terminada la frase
+  umbral_silencio: 0.015  # (modo --voz) subilo si tu micro capta mucho ruido
   max_segundos: 15        # tope duro de grabación
+
+# Modo residente (v3): vive en la bandeja y responde al hotkey global.
+daemon:
+  tecla: "ctrl_r"         # mantenela presionada para hablar
+                          # opciones: ctrl_r, ctrl_l, alt_r, f9, f10, pause, scroll_lock
+  max_segundos: 30        # tope de una sola grabación con la tecla presionada
+  watchdog_s: 30          # cada cuánto se verifica que el micrófono siga vivo
+  latido_s: 300           # cada cuánto se escribe un latido en el audit log

@@ -16,8 +16,13 @@ numpy>=1.24
 nvidia-cublas-cu12
 nvidia-cudnn-cu12>=9,<10
 
+# v3 — integración con el sistema (hotkey global + ícono de bandeja)
+# pynput y NO 'keyboard': esta última a veces exige privilegios de administrador.
+pynput>=1.7
+pystray>=0.19
+Pillow>=10.0
+
 # --- se agregan cuando cada versión los pida (NO instalar aún) ---
 # v0.5 (borrado seguro):  Send2Trash
-# v3   (integración SO):  pynput, pystray
 # v4   (wake word):       openwakeword, silero-vad
 # v5   (router LLM):      ollama
