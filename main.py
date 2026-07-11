@@ -1,24 +1,30 @@
-"""Punto de entrada. v1: REPL de texto + voz de salida (Piper).
+"""Punto de entrada.
 
-Flujo:  texto → Router → Compuerta → Skill → Persona → Salida (voz + consola)
+  python main.py          → REPL de texto (escribís, te responde con voz)
+  python main.py --voz    → push-to-talk (Enter, hablás, te responde con voz)
 
-Si no hay voz configurada (falta el modelo o piper), cae a salida de texto sin romperse.
-Ejecutar desde la raíz del repo, con el venv activo:  python main.py
+Flujo:  entrada → Router → Compuerta → Skill → Persona → Salida
+
+Todo degrada con elegancia: sin modelo Piper responde por consola; sin CUDA transcribe
+en CPU; sin micrófono o sin faster-whisper, cae al REPL de texto.
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from adapters.input_cli import EntradaCLI
 from adapters.output_console import SalidaConsola
 from adapters.output_tts import SalidaTTS
 from core.audit import Auditor
-from core.config import cargar_persona
+from core.config import cargar_apps, cargar_audio, cargar_persona
 from core.contexto import Contexto
 from core.gate import Compuerta
 from core.persona import Persona
 from core.registry import cargar_skills
 from core.router import Router
+
+SALIDAS = ("salir", "exit", "quit")
 
 
 def confirmar_por_consola(pregunta: str) -> bool:
@@ -46,7 +52,43 @@ def construir_salida(persona_cfg: dict):
     return SalidaConsola()
 
 
+def construir_entrada(usar_voz: bool):
+    """Micrófono si se pidió --voz y todo está disponible; si no, teclado."""
+    if not usar_voz:
+        return EntradaCLI()
+    try:
+        from adapters.input_voice import EntradaVoz
+        from adapters.stt_whisper import WhisperEngine, construir_initial_prompt
+
+        cfg = cargar_audio()
+        stt = cfg.get("stt") or {}
+        cap = cfg.get("captura") or {}
+
+        print("[oído] cargando el modelo, esto tarda la primera vez...")
+        engine = WhisperEngine(
+            modelo=stt.get("modelo", "large-v3"),
+            device=stt.get("device", "auto"),
+            compute_type=stt.get("compute_type", "auto"),
+            idioma=stt.get("idioma", "es"),
+            initial_prompt=construir_initial_prompt(list(cargar_apps().keys())),
+        )
+        print(f"[oído activo: faster-whisper en {engine.dispositivo}]")
+        return EntradaVoz(
+            engine,
+            sample_rate=int(cap.get("sample_rate", 16000)),
+            bloque_ms=int(cap.get("bloque_ms", 100)),
+            silencio_ms=int(cap.get("silencio_ms", 1200)),
+            umbral_silencio=float(cap.get("umbral_silencio", 0.015)),
+            max_segundos=int(cap.get("max_segundos", 15)),
+        )
+    except Exception as e:
+        print(f"[oído desactivado: {e}] Uso el teclado.")
+        return EntradaCLI()
+
+
 def main() -> None:
+    usar_voz = "--voz" in sys.argv
+
     persona_cfg = cargar_persona()
     registry = cargar_skills()
     router = Router(registry)
@@ -54,15 +96,17 @@ def main() -> None:
     compuerta = Compuerta(registry, auditor, confirmar=confirmar_por_consola)
     persona = Persona(persona_cfg)
     contexto = Contexto()
-    entrada = EntradaCLI()
     salida = construir_salida(persona_cfg)
+    entrada = construir_entrada(usar_voz)
 
-    print(f"Listo. {len(registry)} skills cargadas. Escribí 'salir' para terminar.")
+    print(f"Listo. {len(registry)} skills cargadas. Decí o escribí 'salir' para terminar.")
     while True:
         texto = entrada.leer()
-        if texto is None or texto.strip().lower() in ("salir", "exit", "quit"):
+        if texto is None or texto.strip().lower() in SALIDAS:
             salida.decir("Hasta luego.")
             break
+        if not texto.strip():
+            continue
 
         intencion = router.enrutar(texto)
         if intencion is None:
