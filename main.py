@@ -108,8 +108,29 @@ def construir_procesador(router: Router, compuerta: Compuerta, persona: Persona,
     return procesar
 
 
+def construir_wakeword():
+    """Detector de wake word, si hay un modelo entrenado. None si no lo hay: el asistente
+    sigue funcionando con el hotkey."""
+    cfg = (cargar_audio().get("wakeword") or {})
+    modelo = cfg.get("modelo")
+    if not modelo or not Path(modelo).exists():
+        return None
+    try:
+        from adapters.wakeword import DetectorWakeWord
+        det = DetectorWakeWord(
+            modelo,
+            umbral=float(cfg.get("umbral", 0.5)),
+            refractario_s=float(cfg.get("refractario_s", 2.0)),
+        )
+        print(f"[wake word activo: {Path(modelo).stem} (umbral {cfg.get('umbral', 0.5)})]")
+        return det
+    except Exception as e:
+        print(f"[wake word desactivado: {e}] Uso solo el hotkey.")
+        return None
+
+
 def correr_daemon(procesar, salida, auditor, persona_cfg: dict) -> None:
-    """Modo residente: bandeja + hotkey global + watchdog."""
+    """Modo residente: wake word + hotkey + bandeja + watchdog + residencia."""
     from adapters.input_voice import GrabadorContinuo
     from core.daemon import Daemon
 
@@ -123,13 +144,18 @@ def correr_daemon(procesar, salida, auditor, persona_cfg: dict) -> None:
         max_segundos=int(dae.get("max_segundos", 30)),
     )
     Daemon(
-        stt=construir_stt(),
+        construir_stt=construir_stt,          # se llama recién al despertar (warm-up)
         grabador=grabador,
         procesar=procesar,
         salida=salida,
         auditor=auditor,
         tecla=str(dae.get("tecla", "ctrl_r")),
         nombre=str(persona_cfg.get("nombre", "Asistente")),
+        wakeword=construir_wakeword(),
+        gracia_s=float(dae.get("gracia_s", 300)),
+        silencio_ms=int(cap.get("silencio_ms", 1200)),
+        umbral_silencio=float(cap.get("umbral_silencio", 0.015)),
+        max_segundos=int(cap.get("max_segundos", 15)),
     ).correr()
 
 

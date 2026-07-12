@@ -4,9 +4,9 @@ Asistente de voz local para Windows: **vive en la bandeja del sistema**. Manten�
 tecla, le hablás, y ejecuta acciones sobre la máquina respondiéndote con voz. Nada sale
 del equipo. Privado, reversible y construido por fases.
 
-> **Versión actual: v3 — vive en el sistema.**
-> Ícono en la bandeja, hotkey global, arranque automático y watchdog de audio.
-> El wake word llega en la v4.
+> **Versión actual: v4 — wake word.**
+> Decís «Raftalia» y responde. El hotkey sigue funcionando como respaldo.
+> Whisper solo ocupa VRAM cuando hace falta: dormido, el asistente usa ~80 MB de RAM y 0 GB de VRAM.
 
 ---
 
@@ -22,8 +22,13 @@ del equipo. Privado, reversible y construido por fases.
 
 **Funciona:**
 
+- **Wake word**: decí «Raftalia» y te contesta «¿Sí?». Corre siempre en CPU con un modelo
+  ONNX de ~200 KB (~80 MB de RAM, 2-3% de un núcleo, **cero VRAM**).
+- **Estados de residencia**: Whisper sube a la GPU solo cuando hace falta, y con
+  **warm-up especulativo** — empieza a cargar en cuanto disparás el wake word, mientras
+  todavía estás diciendo el comando. Tras 5 minutos sin uso, libera la VRAM.
 - **Hotkey global** (Ctrl derecho por defecto): mantenelo apretado, hablá, soltá. Funciona
-  aunque la ventana no tenga el foco.
+  aunque la ventana no tenga el foco, y sigue disponible como respaldo del wake word.
 - **Ícono de bandeja**: ves si está escuchando, podés pausarlo o salir.
 - **Watchdog de audio**: detecta que el micrófono murió (audífonos desconectados,
   suspensión de Windows) y **reabre el stream solo**. Late en el audit log cada 5 minutos.
@@ -44,7 +49,6 @@ del equipo. Privado, reversible y construido por fases.
 
 **Todavía no:**
 
-- No tiene wake word: hay que apretar la tecla. → v4
 - El router usa coincidencia de frases, no un LLM: solo entiende el catálogo. → v5
 - No hace nada por su cuenta (sin automatizaciones). → v6
 
@@ -75,7 +79,7 @@ python -m piper.download_voices es_MX-ald-medium --download-dir voices
 
 # 4. Verificar que todo está sano
 python -m pytest -q
-# Esperado: 71 passed, 1 skipped
+# Esperado: 86 passed, 1 skipped
 # (el test de symlink se salta en Windows: crearlos exige permisos de admin)
 
 # 5. Arrancar
@@ -85,7 +89,10 @@ python main.py --daemon
 La primera vez, **descarga el modelo Whisper `large-v3` (~1.5 GB)**. Tarda varios minutos
 y queda cacheado. Los warnings de `HF_TOKEN` y de symlinks son inofensivos.
 
-Cuando veas `[Nova] activo en la bandeja`, **mantené Ctrl derecho, hablá y soltá**.
+Cuando veas `[Raftalia] activo`, **decí «Raftalia»** (o mantené Ctrl derecho y hablá).
+
+Sin el modelo de wake word entrenado, el asistente funciona igual con el hotkey. Para
+entrenarlo, ver **[`wakeword/README.md`](wakeword/README.md)**.
 
 **Cada vez que abrás una terminal nueva**, activá el entorno: `.venv\Scripts\activate`
 
@@ -144,6 +151,8 @@ nota: ["C:\\Users\\TU_USUARIO\\Documents\\notas"]
 | (modo `--voz`) te corta antes de terminar | Subí `silencio_ms` a `1800` |
 | (modo `--voz`) nunca corta, micro ruidoso | Subí `umbral_silencio` a `0.03` |
 | No tenés GPU | `device: "cpu"` y `modelo: "small"` |
+| El wake word te despierta solo | Subí `wakeword.umbral` a `0.6`–`0.7` |
+| El wake word no te reconoce | Bajá `wakeword.umbral` a `0.4`. Si tenés que bajar de `0.3`, grabá más muestras y reentrená |
 
 ---
 
@@ -163,7 +172,8 @@ core/            # el núcleo estable (no cambia entre versiones)
   sandbox.py       # jaula de rutas
   audit.py         # log append-only en JSONL
   watchdog.py      # detecta el micrófono muerto y reabre el stream
-  daemon.py        # modo residente: hotkey + bandeja + watchdog
+  residencia.py    # dormido → despertando (warm-up) → activo → enfriando
+  daemon.py        # modo residente: wake word + hotkey + bandeja + watchdog
   contexto.py      # últimos N turnos + flags de confianza
   config.py        # carga de los YAML
   persona.py       # capa de estilo pre-voz
@@ -173,8 +183,10 @@ adapters/        # capa de entrada/salida intercambiable
   input_voice.py / stt_whisper.py    # micrófono (faster-whisper)
   output_tts.py / tts_piper.py       # voz (Piper)
   hotkey.py / tray.py                # hotkey global y bandeja
+  wakeword.py                        # detector openWakeWord (siempre activo, en CPU)
 config/          # apps.yaml, permisos.yaml, persona.yaml, audio.yaml
-scripts/         # install_autostart.ps1
+wakeword/        # entrenamiento del wake word (Docker) + muestras + modelos
+scripts/         # install_autostart.ps1, grabar_wakeword.py
 tests/           # golden set, jaula, persona, oído, watchdog, alias de apps
 docs/            # ARCHITECTURE.md y ROADMAP.md (el plano completo)
 main.py          # punto de entrada
@@ -231,7 +243,7 @@ real está en `nvidia.__path__`.
 ## 6. Hoja de ruta
 
 `v0` núcleo · `v0.5` jaula de archivos · `v1` voz de salida · `v2` micrófono ·
-**`v3` residente ← estás acá** · `v4` wake word · `v5` router con LLM · `v6` automatizaciones
+`v3` residente · **`v4` wake word ← estás acá** · `v5` router con LLM · `v6` automatizaciones
 
 Detalle completo en `docs/ROADMAP.md`. Arquitectura, modelo de seguridad, presupuestos de
 latencia/VRAM y decisiones técnicas (ADR) en `docs/ARCHITECTURE.md`.
@@ -240,4 +252,5 @@ latencia/VRAM y decisiones técnicas (ADR) en `docs/ARCHITECTURE.md`.
 
 Voz: [Piper](https://github.com/OHF-Voice/piper1-gpl) (GPL-3.0).
 Oído: [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (MIT).
-Ambos locales y offline.
+Wake word: [openWakeWord](https://github.com/dscripka/openWakeWord) (Apache-2.0).
+Todos locales y offline.

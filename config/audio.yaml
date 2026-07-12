@@ -20,3 +20,11 @@ daemon:
   max_segundos: 30        # tope de una sola grabación con la tecla presionada
   watchdog_s: 30          # cada cuánto se verifica que el micrófono siga vivo
   latido_s: 300           # cada cuánto se escribe un latido en el audit log
+  gracia_s: 300           # tras un comando, Whisper sigue en VRAM 5 min por si hablás de nuevo
+
+# Wake word (v4). Si el modelo no existe, el asistente funciona igual con el hotkey.
+# Se entrena con Docker: ver wakeword/README.md
+wakeword:
+  modelo: "wakeword/modelos/raftalia.onnx"
+  umbral: 0.5             # ↑ menos falsos positivos, ↓ más sensible. Ajustá esto, no reentrenes.
+  refractario_s: 2.0      # tras despertar, ignora detecciones por N segundos

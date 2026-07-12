@@ -110,22 +110,31 @@ class GrabadorContinuo:
         self._stream = None
         self._buffer: list = []
         self._grabando = False
-        self._ultimo_bloque = None
+        self._ultimo = None
+        self.on_frame = None          # (v4) callback del detector de wake word
 
     def abrir(self) -> None:
+        import numpy as np
         import sounddevice as sd
 
         def callback(indata, frames, tiempo, status):
             bloque = indata[:, 0].copy()
-            self._ultimo_bloque = bloque              # lo lee el watchdog
+            self._ultimo = bloque                     # lo leen el watchdog y el endpointer
             if self._grabando and len(self._buffer) < self._max_bloques:
                 self._buffer.append(bloque)
+            if self.on_frame is not None:
+                # openWakeWord espera int16, no float32.
+                self.on_frame((np.clip(bloque, -1.0, 1.0) * 32767).astype(np.int16))
 
         self._stream = sd.InputStream(
             samplerate=self._sr, channels=1, dtype="float32",
             blocksize=self._bloque, callback=callback,
         )
         self._stream.start()
+
+    def ultimo_bloque(self):
+        """Último bloque capturado. Lo usa el endpointer por silencio del daemon."""
+        return self._ultimo
 
     def cerrar(self) -> None:
         if self._stream is not None:
@@ -148,9 +157,9 @@ class GrabadorContinuo:
         """
         from core.watchdog import microfono_mudo
 
-        if self._stream is None or self._ultimo_bloque is None:
+        if self._stream is None or self._ultimo is None:
             return False
-        return not microfono_mudo(self._ultimo_bloque)
+        return not microfono_mudo(self._ultimo)
 
     def empezar(self) -> None:
         self._buffer = []

@@ -22,7 +22,9 @@ pynput>=1.7
 pystray>=0.19
 Pillow>=10.0
 
+# v4 — wake word (detector ONNX de ~200 KB, corre en CPU con consumo despreciable)
+openwakeword>=0.6
+
 # --- se agregan cuando cada versión los pida (NO instalar aún) ---
 # v0.5 (borrado seguro):  Send2Trash
-# v4   (wake word):       openwakeword, silero-vad
 # v5   (router LLM):      ollama
