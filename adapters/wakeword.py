@@ -18,7 +18,8 @@ class DetectorWakeWord:
                  refractario_s: float = 2.0) -> None:
         from openwakeword.model import Model
 
-        self._modelo = Model(wakeword_models=[str(modelo)], inference_framework="onnx")
+        # OJO: el parámetro es wakeword_model_paths (verificado contra la API real).
+        self._modelo = Model(wakeword_model_paths=[str(modelo)])
         self._nombre = Path(modelo).stem
         self._umbral = umbral
         self._refractario = refractario_s

@@ -1,69 +1,98 @@
 # Wake word — "Raftalia"
 
-Entrenamiento del detector que despierta al asistente. Es la parte más frágil del
-proyecto: el pipeline exige versiones de 2022 (Python 3.10, PyTorch 1.13.1, TF 2.8.1),
-por eso vive en Docker y se construye **una sola vez**.
+Entrenamiento del detector que despierta al asistente. **Sin Docker**: todo corre en el
+`.venv` del proyecto, en Windows.
 
-## Requisitos
+## Por qué NO usamos Docker (aunque el pipeline "oficial" lo pide)
 
-- WSL2 + Docker con soporte de GPU. Verificar: `wsl -d Ubuntu-22.04 -- nvidia-smi`
-- Las muestras ya grabadas (ver abajo).
+openWakeWord no clasifica audio crudo. Trae **dos modelos ONNX preentrenados**
+(melspectrograma + embedding) que convierten 2 segundos de audio en una matriz de
+**16×96**. Lo único que hay que entrenar es un **clasificador pequeño** sobre esas
+features.
 
-## 1. Grabar tus muestras
+El pipeline oficial exige Python 3.10, PyTorch 1.13.1 y TensorFlow 2.8.1 (versiones de
+2022) porque hace más cosas de las que necesitamos — y esas versiones son irreconciliables
+con las librerías modernas: al instalarlas, pip termina subiendo numpy a 2.x y rompiendo
+PyTorch 1.13. Es dependency hell puro, y no hace falta pasar por ahí.
+
+También descartamos `piper-sample-generator`: su generador multi-hablante es **solo
+inglés**, y su versión actual exige PyTorch 2, que choca con el 1.13 del pipeline oficial.
+Para español no aporta nada que Piper no haga ya.
+
+## Pasos
+
+### 1. Descargar varias voces de Piper
+
+M�s voces = más variedad tímbrica = mejor detector.
+
+```bash
+python -m piper.download_voices es_MX-ald-medium es_ES-davefx-medium \
+    es_ES-sharvard-medium es_AR-daniela-high --download-dir voices
+```
+
+### 2. Grabar tus muestras
 
 ```bash
 python scripts/grabar_wakeword.py                    # 40 positivas
-python scripts/grabar_wakeword.py --negativas --n 20 # 20 negativas
+python scripts/grabar_wakeword.py --negativas --n 20 # 20 parecidas que NO deben disparar
 ```
 
-**Por qué grabar.** El pipeline genera miles de muestras sintéticas con las voces de
-Piper, que hablan con acento neutro de locutor. Vos no. El clasificador aprende ese
-sonido sintético y después se pone quisquilloso justo con vos, que sos el único usuario.
-El síntoma no es que falle siempre: es que **funciona a veces**. Y eso frustra más que si
-no funcionara nada.
+**Por qué grabar.** Las voces de Piper hablan con acento neutro de locutor. Vos no. Un
+modelo entrenado solo con voces sintéticas se pone quisquilloso justo con vos, que sos el
+único usuario. El síntoma no es que falle siempre: es que **funciona a veces**, y eso
+frustra más. Tus grabaciones cierran esa brecha. Beneficio extra: también hace menos
+probable que **otra persona** lo dispare.
 
-En español el problema es peor que en inglés: el generador multi-hablante de Piper (que
-mezcla speaker embeddings para producir cientos de voces distintas) **solo existe en
-inglés**. En español la variación tímbrica de las muestras sintéticas es mucho menor.
-
-Beneficio extra: un modelo sesgado hacia tu voz también **rechaza mejor a otras
-personas**.
-
-## 2. Construir el contenedor (una vez, tarda)
+### 3. Generar las muestras sintéticas
 
 ```bash
-cd wakeword/docker
-docker compose build
+python scripts/generar_sinteticas.py
 ```
 
-## 3. Entrenar
+Produce tres conjuntos:
+
+| Conjunto | Qué es | Para qué |
+|---|---|---|
+| `sinteticas_positivas` | "Raftalia" en N voces × velocidades × prosodias | El modelo aprende la palabra |
+| `sinteticas_negativas` | "Rafa", "Natalia", "batalla", "raspa"... | Evita falsos positivos con palabras parecidas |
+| `sinteticas_habla` | Frases normales en español | **Sin esto el detector dispara con cualquier conversación** |
+
+### 4. Entrenar
 
 ```bash
-docker compose run --rm entrenador bash
-# ya dentro del contenedor:
-cd /work/openWakeWord/notebooks
-python train.py --training_config /work/wakeword/entrenar.yml
+python scripts/entrenar_wakeword.py
 ```
 
-La primera corrida descarga ~4 GB de datos de entrenamiento (ruido de fondo y respuestas
-de impulso de sala). Quedan cacheados en un volumen de Docker: no se vuelven a bajar.
+Sale un `.onnx` de ~800 KB en `wakeword/modelos/raftalia.onnx`. Con GPU tarda minutos.
 
-El resultado es un `.onnx` de ~200 KB en `wakeword/modelos/`.
+### 5. Probar
 
-## Notas de esta máquina
+```bash
+python main.py --daemon
+```
 
-- **`batch_size: 8`** en `entrenar.yml`. Con 4 GB de VRAM (RTX 3050) un batch grande
-  revienta. En una GPU de 11 GB se usaría 100.
-- El texto entrenado es **"Raftalia"**, no "Raphtalia": el pipeline pasa el texto por
-  espeak-ng para generar las voces, así que hay que escribirlo como se pronuncia.
+Decí «Raftalia».
 
-## Ajustar después de entrenar
+## Ajustar (esto SIEMPRE hace falta la primera vez)
 
-El umbral de detección se afina en `config/audio.yaml` (`wakeword.umbral`), no
-reentrenando. Empezá en `0.5`:
+El umbral vive en `config/audio.yaml` → `wakeword.umbral`. Empezá en `0.5`.
 
-- Muchos falsos positivos (te despierta solo) → subilo a `0.6`–`0.7`.
-- No te reconoce → bajalo a `0.4`–`0.35`.
+| Síntoma | Ajuste |
+|---|---|
+| Te despierta solo (falsos positivos) | Subilo: `0.6` → `0.7` |
+| No te reconoce | Bajalo: `0.4` → `0.35` |
+| Tenés que bajar de `0.3` para que ande | El problema es el dataset: grabá más muestras y reentrená |
 
-Si tenés que bajar de `0.3` para que funcione, el problema es el dataset: grabá más
-muestras positivas y reentrená.
+**El umbral es un dial; el entrenamiento es una fábrica.** No reentrenes para calibrar.
+
+## Detalles técnicos
+
+- **Ventana de 2 s con desplazamiento aleatorio.** En uso real, openWakeWord desliza una
+  ventana sobre el audio: la palabra puede caer en cualquier posición. Si todas las
+  muestras la tuvieran centrada, el detector fallaría en producción.
+- **Las negativas pesan el doble en la pérdida.** Un falso positivo (te despierta solo)
+  molesta más que un falso negativo (repetís la palabra).
+- **Tus grabaciones se repiten más veces que las sintéticas** (20× vs 2×): son pocas pero
+  son las que importan.
+- **El texto es "Raftalia", no "Raphtalia".** El texto se pasa por espeak-ng para generar
+  las voces sintéticas, así que hay que escribirlo como se pronuncia.

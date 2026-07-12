@@ -22,8 +22,13 @@ pynput>=1.7
 pystray>=0.19
 Pillow>=10.0
 
-# v4 — wake word (detector ONNX de ~200 KB, corre en CPU con consumo despreciable)
+# v4 — wake word. El detector corre en CPU con consumo despreciable.
+# torch/onnx SOLO se usan para ENTRENAR (scripts/entrenar_wakeword.py), no en runtime.
+# No hace falta Docker: openWakeWord trae los extractores de features preentrenados.
 openwakeword>=0.6
+torch>=2.0
+onnx>=1.15
+onnxscript>=0.1
 
 # --- se agregan cuando cada versión los pida (NO instalar aún) ---
 # v0.5 (borrado seguro):  Send2Trash
