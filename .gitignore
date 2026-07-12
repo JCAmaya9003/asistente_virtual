@@ -19,3 +19,7 @@ models/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Muestras
+wakeword/muestras/
+wakeword/modelos/
