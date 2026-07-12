@@ -41,5 +41,10 @@ def cargar_skills(paquete: str = "skills") -> Registry:
         mod = importlib.import_module(f"{paquete}.{nombre_mod}")
         for attr in vars(mod).values():
             if isinstance(attr, type) and issubclass(attr, Skill) and attr is not Skill:
-                registry.registrar(attr())
+                skill = attr()
+                # Una skill puede declarar 'registry = None' como atributo de clase para
+                # pedir acceso al catálogo (lo usa la skill de ayuda para autogenerarse).
+                if hasattr(attr, "registry"):
+                    skill.registry = registry
+                registry.registrar(skill)
     return registry

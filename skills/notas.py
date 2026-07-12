@@ -24,7 +24,7 @@ class SkillNota(Skill):
         "properties": {"texto": {"type": "string", "description": "the note content"}},
         "required": ["texto"],
     }
-    frases = ("tomá nota", "toma nota", "anotá", "anota", "nota")
+    frases = ("tomá nota comprar pan", "tomá nota", "toma nota", "anotá", "anota", "nota")
     permisos = Permisos(escribe_archivos=True)
 
     _DISPARADORES = ("tomá nota", "toma nota", "anotá", "anota", "nota")

@@ -77,7 +77,7 @@ class SkillAbrirApp(Skill):
         },
         "required": ["nombre"],
     }
-    frases = ("abre la app", "abrime", "abre", "inicia", "abrir")
+    frases = ("abre chrome", "abre la app", "abrime", "abre", "inicia", "abrir")
     # Lanzar un binario del whitelist NO toca la jaula de archivos → sin permisos de FS.
     permisos = Permisos()
 
