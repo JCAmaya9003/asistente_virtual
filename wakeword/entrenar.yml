@@ -1,0 +1,66 @@
+# Configuración del entrenamiento del wake word.
+#
+# OJO CON EL TEXTO: el pipeline convierte 'target_phrase' a fonemas con espeak-ng para
+# generar las voces sintéticas. Escribimos "Raftalia" (como se pronuncia), NO "Raphtalia":
+# si no, las miles de muestras sintéticas sonarían a algo que nadie dice.
+
+model_name: raftalia
+
+target_phrase:
+  - "Raftalia"
+  - "Rraftalia"          # variante con vibrante más marcada (español)
+
+# Frases parecidas que NO deben disparar. Son las que causan los falsos positivos:
+# el modelo necesita verlas explícitamente marcadas como negativas.
+custom_negative_phrases:
+  - "Rafa"
+  - "Rafael"
+  - "Natalia"
+  - "Italia"
+  - "batalla"
+  - "raspa"
+  - "raptar"
+  - "Talia"
+  - "gramática"
+  - "falta"
+  - "falla"
+  - "Ravioli"
+
+# --- generación de muestras sintéticas ---
+# n_samples: cuántas muestras positivas sintéticas generar.
+# batch_size: BAJO A PROPÓSITO. Con 4 GB de VRAM (RTX 3050) un batch grande revienta.
+#             En una 2080 Ti de 11 GB se usaría 100; acá, 8.
+n_samples: 5000
+n_samples_val: 500
+batch_size: 8
+
+# Voz de Piper para generar (español). El generador multi-hablante con mezcla de
+# speaker embeddings es SOLO inglés, así que en español la variación tímbrica es menor.
+# Por eso tus grabaciones reales importan tanto (ver wakeword/muestras/positivas/).
+tts_model: "es_MX-ald-medium"
+
+# --- aumentación ---
+# Ruido de fondo y respuestas de impulso de sala: hacen que el modelo funcione en un
+# cuarto real y no solo en condiciones de laboratorio.
+augmentation_rounds: 2
+background_paths:
+  - ./audioset_16k
+  - ./fma_16k
+rir_paths:
+  - ./mit_rirs
+
+# --- tus muestras reales ---
+# Se suman a las sintéticas. Cierran la brecha de acento: las voces de Piper hablan con
+# acento neutro de locutor; vos no.
+custom_positive_paths:
+  - /work/wakeword/muestras/positivas
+custom_negative_paths:
+  - /work/wakeword/muestras/negativas
+
+# --- entrenamiento ---
+steps: 50000
+max_negative_weight: 1500
+target_accuracy: 0.7
+target_recall: 0.5
+
+output_dir: /work/wakeword/modelos
